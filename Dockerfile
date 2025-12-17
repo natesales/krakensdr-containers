@@ -1,4 +1,4 @@
-FROM --platform=linux/amd64 ubuntu:24.04
+FROM ubuntu:24.04
 
 RUN apt update && apt install -y \
     git \
@@ -13,8 +13,9 @@ RUN apt update && apt install -y \
     libc++-dev \
     libc++abi-dev
 
-    RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-# RUN cargo install miniserve
+# RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+# # RUN cargo install miniserve
+# RUN rm -fR /root/.cargo/registry /root/.rustup/
 
 # Hacked rtl-sdr drivers
 WORKDIR /tmp/
@@ -30,17 +31,18 @@ RUN rm -fR /tmp/librtlsdr
 
 # KFR DSP library
 WORKDIR /tmp
-RUN git clone https://github.com/kfrlib/kfr.git --branch 6.3.1 --single-branch
-RUN mkdir -p krf/build
-WORKDIR /tmp/kfr/build
-RUN cmake -Wno-dev -GNinja -DKFR_ENABLE_CAPI_BUILD=ON -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON ..
-RUN ninja
-RUN mkdir /usr/include/kfr
-RUN cp /tmp/kfr/build/lib/* /usr/lib
-RUN cp /tmp/kfr/include/kfr/capi.h /usr/include/kfr
-RUN ldconfig
-RUN rm -fR /tmp/kfr
+RUN git clone https://github.com/kfrlib/kfr.git --branch 6.3.1 --single-branch && \
+    mkdir -p kfr/build && \
+    cd kfr/build && \
+    cmake -Wno-dev -GNinja -DKFR_ENABLE_CAPI_BUILD=ON -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON .. && \
+    ninja && \
+    mkdir -p /usr/include/kfr && \
+    cp /tmp/kfr/build/lib/* /usr/lib && \
+    cp /tmp/kfr/include/kfr/capi.h /usr/include/kfr && \
+    ldconfig && \
+    rm -fR /tmp/kfr
 
+# Setup conda environment
 WORKDIR /tmp
 RUN curl --proto '=https' --tlsv1.2 -sSfLO https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
 RUN chmod ug+x /tmp/Miniforge3-Linux-x86_64.sh
@@ -52,23 +54,27 @@ WORKDIR /root/
 RUN conda update --all
 RUN conda init bash
 RUN conda create -n kraken python=3.14
-RUN conda run -n kraken conda install intel-cmplr-lib-rt
-RUN conda run -n kraken conda install numba \
-    pyzmq \
-    pandas \
-    tbb4py \
-    numpy \
-    orjson \
-    scipy==1.9.3
-RUN conda run -n kraken conda install "libblas=*=*mkl"
-RUN rm -fR /tmp/Miniforge3-Linux-x86_64.sh
 
-# HeIMDALL DAQ Firmware
-RUN mkdir /root/krakensdr
-WORKDIR /root/krakensdr
-RUN git clone https://github.com/krakenrf/heimdall_daq_fw
-WORKDIR /root/krakensdr/heimdall_daq_fw/Firmware/_daq_core
-RUN conda run -n kraken make
+# RUN conda run -n kraken conda install \
+#     intel-cmplr-lib-rt \
+#     numba \
+#     pyzmq \
+#     pandas \
+#     tbb4py \
+#     numpy==0.56.4 \
+#     orjson \
+#     scipy==1.9.3 \
+#     configparser \
+#     scikit-rf
+# RUN conda run -n kraken conda install "libblas=*=*mkl"
+# RUN rm -fR /tmp/Miniforge3-Linux-x86_64.sh
+
+# # HeIMDALL DAQ Firmware
+# RUN mkdir /root/krakensdr
+# WORKDIR /root/krakensdr
+# RUN git clone https://github.com/krakenrf/heimdall_daq_fw
+# WORKDIR /root/krakensdr/heimdall_daq_fw/Firmware/_daq_core
+# RUN conda run -n kraken make
 
 # # DoA App
 # WORKDIR /root/krakensdr
@@ -97,4 +103,4 @@ RUN conda run -n kraken make
 RUN conda run conda clean --all --yes
 RUN conda run -n kraken pip3 cache purge
 
-CMD /root/krakensdr/kraken_doa_start.sh && sleep infinity
+# CMD /root/krakensdr/kraken_doa_start.sh && sleep infinity
